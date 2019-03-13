@@ -34,6 +34,7 @@ $(CPANFILE_SNAPSHOT): .perl-version $(CPANFILE)
 
 clean:
 	rm -rf cover_db
+	dzil clean
 
 release:
 	dzil release
