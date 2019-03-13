@@ -100,9 +100,10 @@ sub run {
 
     # Generate the human readable info string
     my $info = sprintf(
-        "%s %s check of %s%s",
+        "%s %s %s check of %s%s",
         $status eq "OK" ? "Successful" : "Unsuccessful",
         $dbh->{Driver}->{Name},
+        $read_only ? "read only" : "read write",
         $dbh->{Name},
         $dbh->{Username} ? " as $dbh->{Username}" : "",
     );

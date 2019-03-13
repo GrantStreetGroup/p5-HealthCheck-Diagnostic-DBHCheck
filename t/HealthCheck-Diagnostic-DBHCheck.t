@@ -42,14 +42,19 @@ like
 is_deeply( HealthCheck::Diagnostic::DBHCheck->new( dbh => $dbh )->check, {
     label  => 'dbh_check',
     status => 'OK',
-    info   => "Successful SQLite check of $dbname",
+    info   => "Successful SQLite read write check of $dbname",
 }, "OK status as expected" );
 
 $dbh->disconnect;
 is_deeply( HealthCheck::Diagnostic::DBHCheck->check( dbh => $dbh ), {
     status => 'CRITICAL',
-    info   => "Unsuccessful SQLite check of dbname=:memory:",
+    info   => "Unsuccessful SQLite read write check of dbname=:memory:",
 }, "CRITICAL status as expected" );
+
+is_deeply( HealthCheck::Diagnostic::DBHCheck->check( dbh => $dbh, read_only => 1 ), {
+    status => 'CRITICAL',
+    info   => "Unsuccessful SQLite read only check of dbname=:memory:",
+}, "CRITICAL status as expectedi with read_only set" );
 
 # Now try it with a username and a coderef
 $dbh = sub {
@@ -59,7 +64,7 @@ $dbh = sub {
 is_deeply( HealthCheck::Diagnostic::DBHCheck->new( dbh => $dbh )->check, {
     label  => 'dbh_check',
     status => 'OK',
-    info   => "Successful SQLite check of $dbname as FakeUser",
+    info   => "Successful SQLite read write check of $dbname as FakeUser",
 }, "OK status as expected" );
 
 # Turn it into a coderef that returns a disconnected dbh
@@ -67,7 +72,7 @@ $dbh = do { my $x = $dbh; sub { my $y = $x->(); $y->disconnect; $y } };
 
 is_deeply( HealthCheck::Diagnostic::DBHCheck->check( dbh => $dbh ), {
     status => 'CRITICAL',
-    info   => "Unsuccessful SQLite check of $dbname as FakeUser",
+    info   => "Unsuccessful SQLite read write check of $dbname as FakeUser",
 }, "CRITICAL status as expected" );
 
 done_testing;
