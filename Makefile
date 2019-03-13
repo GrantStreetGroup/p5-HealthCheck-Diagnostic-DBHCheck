@@ -38,3 +38,4 @@ clean:
 
 release:
 	dzil release
+	dzil clean
