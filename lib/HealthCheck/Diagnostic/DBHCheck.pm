@@ -122,19 +122,19 @@ __END__
         ),
         HealthCheck::Diagnostic::DBHCheck->new(
             dbh => \&connect_to_read_only_db,
-            tags
+            tags => [qw< dbh_check_ro >]
         ),
     ] );
 
     my $result = $health_check->check;
-    $result->{status}; # OK on a successful ping or CRITICAL otherwise
+    $result->{status}; # OK on a successful check or CRITICAL otherwise
 
 =head1 DESCRIPTION
 
 Determines if the database can be used for read and write access, or read only
 access.
 
-For C<readonly> access, a simple SELECT statement is used.
+For C<read_only> access, a simple SELECT statement is used.
 
 For C<reaad_write> access, a temporary table is created, and used for testing.
 
