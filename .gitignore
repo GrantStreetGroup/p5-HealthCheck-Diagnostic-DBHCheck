@@ -17,5 +17,5 @@ pm_to_blib
 cpanfile.snapshot
 .perl-version
 local/
-HealthCheck-Diagnostic-DBHPing-v*/
-HealthCheck-Diagnostic-DBHPing-v*.tar.*
+HealthCheck-Diagnostic-DBHCheck-*/
+HealthCheck-Diagnostic-DBHCheck-*.tar.*
