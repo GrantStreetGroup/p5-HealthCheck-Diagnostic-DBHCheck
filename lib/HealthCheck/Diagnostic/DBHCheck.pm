@@ -17,6 +17,9 @@ sub new {
     my %params = @params == 1 && ( ref $params[0] || '' ) eq 'HASH'
         ? %{ $params[0] } : @params;
 
+    croak("The 'dbh' parameter should be a coderef!")
+      if ($params{dbh} && (ref $params{dbh} ne "CODE"));
+
     return $class->SUPER::new(
         label => 'dbh_check',
         %params
@@ -26,12 +29,22 @@ sub new {
 sub check {
     my ( $self, %params ) = @_;
 
+   # 1st, try to get dbh from provided parameters
     my $dbh = $params{dbh};
+    # 2nd, if invoked with an object (not the class), then get dbh from object
     $dbh ||= $self->{dbh} if ref $self;
-    $dbh = $dbh->(%params) if ref $dbh eq 'CODE';
 
-    croak("Valid 'dbh' is required") unless $dbh and do {
-        local $@; local $SIG{__DIE__}; eval { $dbh->can('ping') } };
+    croak("Valid 'dbh' is required") unless $dbh;
+
+    croak("The 'dbh' parameter should be a coderef!")
+        unless (ref $dbh eq "CODE");
+
+    $dbh = $dbh->(%params);
+
+    my $isa = ref $dbh;
+
+    croak("The 'dbh' coderef should return a database handle, not a '$isa'")
+        unless ($isa =~ /^DBI/);
 
     my $read_only  = $params{read_only}  // ((ref $self) && $self->{read_only});
     my $read_write = $params{read_write} // ((ref $self) && $self->{read_write});
