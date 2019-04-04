@@ -5,30 +5,66 @@ use Test::More;
 use HealthCheck::Diagnostic::DBHCheck;
 use DBI;
 use DBD::SQLite;
+use Scalar::Util qw( blessed );
 
-my $bad_dbh = qr/Valid 'dbh' is required at \S+ line \d+/;
+my $bad_dbh          = qr/Valid 'dbh' is required at \S+ line \d+/;
+my $expected_coderef = qr/The 'dbh' parameter should be a coderef/;
 
+our %db_param;
+sub db_connect
+{
+    my $dsn  =  $ENV{DBITEST_DSN} //
+                $db_param{dsn}    //
+                "dbi:SQLite:dbname=:memory:";
+    my $user =  $ENV{DBITEST_DBUSER} //
+                $db_param{dbuser}    //
+                "";
+    my $pass =  $ENV{DBITEST_DBPASS} //
+                $db_param{dbpass}    //
+                "";
+
+    $db_param{dbh} = DBI->connect(
+        $dsn,
+        $user,
+        $pass,
+        {
+            RaiseError => 0, # For tests, just be quiet
+            PrintError => 0, # For tests, just be quiet
+        }
+    );
+    return $db_param{dbh};
+}
+
+sub db_disconnect
+{
+    $db_param{dbh}->disconnect
+        if (blessed $db_param{dbh} && $db_param{dbh}->can("disconnect"));
+    undef %db_param;
+}
 eval { HealthCheck::Diagnostic::DBHCheck->check };
-like $@, $bad_dbh, "Expected error with no DBHi (as class)";
+like $@, $bad_dbh, "Expected error with no DBH (as class)";
 
 eval { HealthCheck::Diagnostic::DBHCheck->new->check };
 like $@, $bad_dbh, "Expected error with no DBH";
 
 eval { HealthCheck::Diagnostic::DBHCheck->new( dbh => {} )->check };
-like $@, $bad_dbh, "Expected error with DBH as empty hashref";
+like $@, $expected_coderef, "Expected error with DBH as empty hashref";
 
 eval { HealthCheck::Diagnostic::DBHCheck->check( dbh => bless {} ) };
-like $@, $bad_dbh, "Expected error with DBH as empty blessed hashref";
+like $@, $expected_coderef, "Expected error with DBH as empty blessed hashref";
 
 eval { HealthCheck::Diagnostic::DBHCheck->check( dbh => sub {} ) };
-like $@, $bad_dbh, "Expected error with DBH empty sub";
+like(
+    $@,
+    qr/The 'dbh' coderef should return a database handle/,
+    "Expected error with DBH empty sub"
+);
 
-my $dbname = 'dbname=:memory:';
-my $dbh = DBI->connect("dbi:SQLite:$dbname","","", { PrintError => 0 });
+my $result;
 
 eval {
         HealthCheck::Diagnostic::DBHCheck->new(
-            dbh        => $dbh,
+            dbh        => \&db_connect,
             read_only  => 1,
             read_write => 1
         )->check;
@@ -39,40 +75,63 @@ like
     qr/mutually exclusive/,
     "Expected error with both read_only and read_write";
 
-is_deeply( HealthCheck::Diagnostic::DBHCheck->new( dbh => $dbh )->check, {
-    label  => 'dbh_check',
-    status => 'OK',
-    info   => "Successful SQLite read write check of $dbname",
-}, "OK status as expected" );
+$result = HealthCheck::Diagnostic::DBHCheck->new(
+        dbh => \&db_connect
+    )->check;
+is( $result->{label},
+    "dbh_check",
+    "Expected label when connected without username"
+);
+is( $result->{status},
+    "OK",
+    "Expected result when connected without username",
+);
+like(
+    $result->{info},
+    qr/Successful (.+) read write check of (.+)/,
+    "Expected info when connected without username",
+);
 
-$dbh->disconnect;
-is_deeply( HealthCheck::Diagnostic::DBHCheck->check( dbh => $dbh ), {
-    status => 'CRITICAL',
-    info   => "Unsuccessful SQLite read write check of dbname=:memory:",
-}, "CRITICAL status as expected" );
+$result = HealthCheck::Diagnostic::DBHCheck->check(
+    dbh => sub { $db_param{dbh}->disconnect; return $db_param{dbh}; }
+);
 
-is_deeply( HealthCheck::Diagnostic::DBHCheck->check( dbh => $dbh, read_only => 1 ), {
-    status => 'CRITICAL',
-    info   => "Unsuccessful SQLite read only check of dbname=:memory:",
-}, "CRITICAL status as expectedi with read_only set" );
+is( $result->{status}, "CRITICAL", "Expected status for disconnected dbh");
 
-# Now try it with a username and a coderef
-$dbh = sub {
-    DBI->connect("dbi:SQLite:$dbname","FakeUser","", { PrintError => 0 })
-};
+like(
+    $result->{info},
+    qr/Unsuccessful \S+ read write check of \S+/,
+    "Expected info for disconnected dbh"
+);
 
-is_deeply( HealthCheck::Diagnostic::DBHCheck->new( dbh => $dbh )->check, {
-    label  => 'dbh_check',
-    status => 'OK',
-    info   => "Successful SQLite read write check of $dbname as FakeUser",
-}, "OK status as expected" );
+
+# Now try it with a username
+$db_param{dbuser} = "FakeUser";
+
+$result = HealthCheck::Diagnostic::DBHCheck->new(
+        dbh => \&db_connect
+    )->check;
+
+is( $result->{label},  "dbh_check", "Correct label" );
+is( $result->{status}, "OK",        "Expected status" );
+like(
+    $result->{info},
+    qr/Successful (.+) read write check of (.+) as (.+)/,
+    "Expected info with username"
+);
 
 # Turn it into a coderef that returns a disconnected dbh
-$dbh = do { my $x = $dbh; sub { my $y = $x->(); $y->disconnect; $y } };
+$result = HealthCheck::Diagnostic::DBHCheck->check(
+    dbh => sub { $db_param{dbh}->disconnect; return $db_param{dbh}; }
+);
 
-is_deeply( HealthCheck::Diagnostic::DBHCheck->check( dbh => $dbh ), {
-    status => 'CRITICAL',
-    info   => "Unsuccessful SQLite read write check of $dbname as FakeUser",
-}, "CRITICAL status as expected" );
+is( $result->{status}, "CRITICAL", "Exptected status for disconnected handle" );
+like(
+    $result->{info},
+    qr/Unsuccessful (.+) read write check of (.+) as (.+)/,
+    "Expected info for disconnected handle"
+);
 
 done_testing;
+
+
