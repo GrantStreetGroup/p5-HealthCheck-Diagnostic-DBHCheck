@@ -156,7 +156,7 @@ access.
 
 For C<read_only> access, a simple SELECT statement is used.
 
-For C<reaad_write> access, a temporary table is created, and used for testing.
+For C<read_write> access, a temporary table is created, and used for testing.
 
 =head1 ATTRIBUTES
 
@@ -165,7 +165,7 @@ Those inherited from L<HealthCheck::Diagnostic/ATTRIBUTES> plus:
 =head2 dbh
 
 A coderef that returns a
-L<DBI database handle object|DBI/DBI-DATABSE-HANDLE-OBJECTS>
+L<DBI DATABASE handle object|DBI/DBI-DATABSE-HANDLE-OBJECTS>
 or optionally the handle itself.
 
 Can be passed either to C<new> or C<check>.
