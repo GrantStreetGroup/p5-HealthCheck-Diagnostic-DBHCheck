@@ -64,15 +64,14 @@ my $result;
 
 eval {
         HealthCheck::Diagnostic::DBHCheck->new(
-            dbh        => \&db_connect,
-            read_only  => 1,
-            read_write => 1
+            dbh       => \&db_connect,
+            db_access => "everything",
         )->check;
     };
 
 like
     $@,
-    qr/mutually exclusive/,
+    qr/value '.*' is not valid for the 'db_access' parameter/,
     "Expected error with both read_only and read_write";
 
 $result = HealthCheck::Diagnostic::DBHCheck->new(

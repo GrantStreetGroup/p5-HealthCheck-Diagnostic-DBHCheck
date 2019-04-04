@@ -46,13 +46,18 @@ sub check {
     croak("The 'dbh' coderef should return a database handle, not a '$isa'")
         unless ($isa =~ /^DBI/);
 
-    my $read_only  = $params{read_only}  // ((ref $self) && $self->{read_only});
-    my $read_write = $params{read_write} // ((ref $self) && $self->{read_write});
+    my $db_access = $params{db_access}          # Provided call to check()
+        // ((ref $self) && $self->{db_access})  # Value from new()
+        || "rw";                                # default value
 
-    croak("The 'read_only' and 'read_write' parameters are mutually exclusive")
-        if ($read_only && $read_write);
+    croak("The value '$db_access' is not valid for the 'db_access' parameter")
+        unless ($db_access =~ /^r[ow]$/);
 
-    my $res = $self->SUPER::check( %params, dbh => $dbh );
+    my $res = $self->SUPER::check(
+        %params,
+        dbh => $dbh,
+        db_access => $db_access,
+    );
     delete $res->{dbh};    # don't include the object in the result
 
     return $res;
@@ -103,8 +108,8 @@ sub run {
     my ( $self, %params ) = @_;
     my $dbh = $params{dbh};
 
-    # Get readonly from parameters or object
-    my $read_only = $params{read_only} // ((ref $self) && $self->{read_only});
+    # Get db_access from parameters 
+    my $read_write = ($params{db_access} =~ /^rw$/i);
 
     my $status = "CRITICAL";
 
@@ -115,14 +120,14 @@ sub run {
     }
 
     $status = _read_write_temp_table(%params)
-        if (($status eq "OK") && !$read_only);
+        if (($status eq "OK") && $read_write);
 
     # Generate the human readable info string
     my $info = sprintf(
         "%s %s %s check of %s%s",
         $status eq "OK" ? "Successful" : "Unsuccessful",
         $dbh->{Driver}->{Name},
-        $read_only ? "read only" : "read write",
+        $read_write ? "read write" : "read only",
         $dbh->{Name},
         $dbh->{Username} ? " as $dbh->{Username}" : "",
     );
@@ -137,12 +142,14 @@ __END__
 
     my $health_check = HealthCheck->new( checks => [
         HealthCheck::Diagnostic::DBHCheck->new(
-            dbh => \&connect_to_read_write_db,
-            tags => [qw< dbh_check_rw >]
+            dbh       => \&connect_to_read_write_db,
+            db_access => "rw",
+            tags      => [qw< dbh_check_rw >]
         ),
         HealthCheck::Diagnostic::DBHCheck->new(
-            dbh => \&connect_to_read_only_db,
-            tags => [qw< dbh_check_ro >]
+            dbh       => \&connect_to_read_only_db,
+            db_access => "ro",
+            tags      => [qw< dbh_check_ro >]
         ),
     ] );
 
@@ -154,9 +161,9 @@ __END__
 Determines if the database can be used for read and write access, or read only
 access.
 
-For C<read_only> access, a simple SELECT statement is used.
+For read access, a simple SELECT statement is used.
 
-For C<read_write> access, a temporary table is created, and used for testing.
+For write access, a temporary table is created, and used for testing.
 
 =head1 ATTRIBUTES
 
@@ -170,15 +177,15 @@ or optionally the handle itself.
 
 Can be passed either to C<new> or C<check>.
 
-=head2 read_only
+=head2 db_access
 
-A boolean value indicating if only the read access should be tested.
-B<NOTE:> Cannot be used when C<read_write> is true.
+A string indicating the type of access being tested.
 
-=head2 read_write
+A value of C<ro> indicates only read access shoud be tested.
 
-A boolean value indicating if boteh read and write access should be tested.
-B<NOTE:> Cannot be used when C<read_only> is true.
+A value of C<rw> indicates both read and write access should be tested.
+
+DEFAULT is C<rw>.
 
 =head1 DEPENDENCIES
 
