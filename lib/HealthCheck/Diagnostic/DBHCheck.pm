@@ -65,13 +65,15 @@ sub _read_write_temp_table {
     my $table    = $params{table_name} // "__DBH_CHECK__";
     my $status   = "CRITICAL";
 
+    my $qtable   = $dbh->quote_identifier($table);
+
     # Drop it like its hot
-    $dbh->do("DROP TABLE IF EXISTS $table");
+    $dbh->do("DROP TABLE IF EXISTS $qtable");
 
     $dbh->do(
         join(
             "", 
-            "CREATE TEMPORARY TABLE IF NOT EXISTS $table (",
+            "CREATE TEMPORARY TABLE IF NOT EXISTS $qtable (",
             "check_id INTEGER PRIMARY KEY,",
             "check_string VARCHAR(64) NOT NULL",
             ")"
@@ -81,18 +83,18 @@ sub _read_write_temp_table {
     $dbh->do(
         join(
             "",
-            "INSERT INTO $table ",
+            "INSERT INTO $qtable ",
             "       (check_id, check_string) ",
             "VALUES (1,        'Hello world')",
         )
     );
     my @row = $dbh->selectrow_array(
-        "SELECT check_string FROM $table WHERE check_id = 1"
+        "SELECT check_string FROM $qtable WHERE check_id = 1"
     );
 
     $status = "OK" if ($row[0] && ($row[0] eq "Hello world"));
 
-    $dbh->do("DROP TABLE $table");
+    $dbh->do("DROP TABLE $qtable");
 
     return $status;
 }
