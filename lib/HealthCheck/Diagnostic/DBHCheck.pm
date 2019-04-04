@@ -106,9 +106,13 @@ sub run {
     # Get readonly from parameters or object
     my $read_only = $params{read_only} // ((ref $self) && $self->{read_only});
 
-    # See if a simple SELECT works
-    my $value  = eval { $dbh->selectrow_array("SELECT 1"); };
-    my $status = (defined($value) && ($value == 1)) ? "OK" : "CRITICAL";
+    my $status = "CRITICAL";
+
+    if ($dbh->can("ping") && $dbh->ping) {
+        # See if a simple SELECT works
+        my $value  = eval { $dbh->selectrow_array("SELECT 1"); };
+        $status = (defined($value) && ($value == 1)) ? "OK" : "CRITICAL";
+    }
 
     $status = _read_write_temp_table(%params)
         if (($status eq "OK") && !$read_only);
