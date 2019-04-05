@@ -7,9 +7,16 @@ use DBI;
 use DBD::SQLite;
 use Scalar::Util qw( blessed );
 
-my $bad_dbh          = qr/Valid 'dbh' is required at \S+ line \d+/;
-my $expected_coderef = qr/The 'dbh' parameter should be a coderef/;
-
+#-------------------------------------------------------------------------------
+#     FUNCTION: db_connect
+#  DESCRIPTION: Helper function to connect to a test database. Will default to
+#               using SQLite, but can be overridden with environment variables.
+#   PARAMETERS: NONE
+#      RETURNS: NONE
+#     COMMENTS: DBITEST_DSN    - Override the DB DSN
+#               DBITEST_DBUSER - Override the DB user name
+#               DBITEST_DBPASS - Override the DB password
+#-------------------------------------------------------------------------------
 our %db_param;
 sub db_connect
 {
@@ -35,12 +42,12 @@ sub db_connect
     return $db_param{dbh};
 }
 
-sub db_disconnect
-{
-    $db_param{dbh}->disconnect
-        if (blessed $db_param{dbh} && $db_param{dbh}->can("disconnect"));
-    undef %db_param;
-}
+#-------------------------------------------------------------------------------
+# Tests begin here
+#-------------------------------------------------------------------------------
+my $bad_dbh          = qr/Valid 'dbh' is required at \S+ line \d+/;
+my $expected_coderef = qr/The 'dbh' parameter should be a coderef/;
+
 eval { HealthCheck::Diagnostic::DBHCheck->check };
 like $@, $bad_dbh, "Expected error with no DBH (as class)";
 
@@ -56,8 +63,30 @@ like $@, $expected_coderef, "Expected error with DBH as empty blessed hashref";
 eval { HealthCheck::Diagnostic::DBHCheck->check( dbh => sub {} ) };
 like(
     $@,
-    qr/The 'dbh' coderef should return a database handle/,
+    qr/The 'dbh' coderef should return an object/,
     "Expected error with DBH empty sub"
+);
+
+eval {
+    HealthCheck::Diagnostic::DBHCheck->check(
+        dbh => sub { return "foobar"; }
+    )
+};
+like(
+    $@,
+    qr/The 'dbh' coderef should return an object/,
+    "Expected error with DBH returning a scalar"
+);
+
+eval {
+    HealthCheck::Diagnostic::DBHCheck->check(
+        dbh => sub { return bless {}, "Foo::Bar"; }
+    )
+};
+like(
+    $@,
+    qr/The 'dbh' coderef should return a '.*', not a 'Foo::Bar'/,
+    "Expected error with DBH returning an unexpected class of object"
 );
 
 my $result;
@@ -72,23 +101,41 @@ eval {
 like
     $@,
     qr/value '.*' is not valid for the 'db_access' parameter/,
-    "Expected error with both read_only and read_write";
+    "Expected error with invalid 'db_access'";
 
 $result = HealthCheck::Diagnostic::DBHCheck->new(
         dbh => \&db_connect
     )->check;
 is( $result->{label},
     "dbh_check",
-    "Expected label when connected without username"
+    "Expected label for read write test without username"
 );
 is( $result->{status},
     "OK",
-    "Expected result when connected without username",
+    "Expected result for read write test without username",
 );
 like(
     $result->{info},
     qr/Successful (.+) read write check of (.+)/,
-    "Expected info when connected without username",
+    "Expected info for read write test without username",
+);
+
+$result = HealthCheck::Diagnostic::DBHCheck->new(
+        dbh       => \&db_connect,
+        db_access => "ro",
+    )->check;
+is( $result->{label},
+    "dbh_check",
+    "Expected label for read only test without username"
+);
+is( $result->{status},
+    "OK",
+    "Expected result for read only test without username",
+);
+like(
+    $result->{info},
+    qr/Successful (.+) read only check of (.+)/,
+    "Expected info for read only test without username",
 );
 
 $result = HealthCheck::Diagnostic::DBHCheck->check(
@@ -116,7 +163,7 @@ is( $result->{status}, "OK",        "Expected status" );
 like(
     $result->{info},
     qr/Successful (.+) read write check of (.+) as (.+)/,
-    "Expected info with username"
+    "Expected info for read write with username"
 );
 
 # Turn it into a coderef that returns a disconnected dbh
@@ -132,5 +179,3 @@ like(
 );
 
 done_testing;
-
-

@@ -9,6 +9,7 @@ use warnings;
 use parent 'HealthCheck::Diagnostic';
 
 use Carp;
+use Scalar::Util qw( blessed );
 
 sub new {
     my ($class, @params) = @_;
@@ -41,10 +42,17 @@ sub check {
 
     $dbh = $dbh->(%params);
 
+    croak("The 'dbh' coderef should return an object!")
+        unless (blessed $dbh);
+
+    my $db_class = $params{db_class}            # Provided in call to check()
+        // ((ref $self) && $self->{db_class})   # Value from new
+        || "DBI::db";                           # default value
+
     my $isa = ref $dbh;
 
-    croak("The 'dbh' coderef should return a database handle, not a '$isa'")
-        unless ($isa =~ /^DBI/);
+    croak("The 'dbh' coderef should return a '$db_class', not a '$isa'")
+        unless ($dbh->isa($db_class));
 
     my $db_access = $params{db_access}          # Provided call to check()
         // ((ref $self) && $self->{db_access})  # Value from new()
@@ -55,8 +63,9 @@ sub check {
 
     my $res = $self->SUPER::check(
         %params,
-        dbh => $dbh,
+        dbh       => $dbh,
         db_access => $db_access,
+        db_class  => $db_class
     );
     delete $res->{dbh};    # don't include the object in the result
 
@@ -77,7 +86,7 @@ sub _read_write_temp_table {
 
     $dbh->do(
         join(
-            "", 
+            "",
             "CREATE TEMPORARY TABLE IF NOT EXISTS $qtable (",
             "check_id INTEGER PRIMARY KEY,",
             "check_string VARCHAR(64) NOT NULL",
@@ -108,12 +117,17 @@ sub run {
     my ( $self, %params ) = @_;
     my $dbh = $params{dbh};
 
-    # Get db_access from parameters 
+    # Get db_access from parameters
     my $read_write = ($params{db_access} =~ /^rw$/i);
 
-    my $status = "CRITICAL";
+    my $status = "OK";
 
-    if ($dbh->can("ping") && $dbh->ping) {
+    # See if we can ping the DB connection
+    if ($dbh->can("ping")) {
+        $status = $dbh->ping ? "OK" : "CRITICAL";
+    }
+
+    if ($status eq "OK") {
         # See if a simple SELECT works
         my $value  = eval { $dbh->selectrow_array("SELECT 1"); };
         $status = (defined($value) && ($value == 1)) ? "OK" : "CRITICAL";
@@ -186,6 +200,12 @@ A value of C<ro> indicates only read access shoud be tested.
 A value of C<rw> indicates both read and write access should be tested.
 
 DEFAULT is C<rw>.
+
+=head2 db_class
+
+The expected class for the database handle returned by the C<dbh> coderef.
+
+Defaults to C<DBI::db>.
 
 =head1 DEPENDENCIES
 
