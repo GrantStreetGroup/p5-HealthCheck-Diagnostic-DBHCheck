@@ -58,7 +58,7 @@ realclean: clean
 	rm -rf local
 
 release:
-	dzil release
+	$(CARTON) exec dzil release
 	dzil clean
 
 
