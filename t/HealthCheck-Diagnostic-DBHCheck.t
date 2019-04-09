@@ -106,6 +106,7 @@ like
 $result = HealthCheck::Diagnostic::DBHCheck->new(
         dbh => \&db_connect
     )->check;
+note explain $result;
 is( $result->{label},
     "dbh_check",
     "Expected label for read write test without username"
@@ -124,6 +125,7 @@ $result = HealthCheck::Diagnostic::DBHCheck->new(
         dbh       => \&db_connect,
         db_access => "ro",
     )->check;
+note explain $result;
 is( $result->{label},
     "dbh_check",
     "Expected label for read only test without username"
@@ -141,6 +143,7 @@ like(
 $result = HealthCheck::Diagnostic::DBHCheck->check(
     dbh => sub { $db_param{dbh}->disconnect; return $db_param{dbh}; }
 );
+note explain $result;
 
 is( $result->{status}, "CRITICAL", "Expected status for disconnected dbh");
 
@@ -157,6 +160,7 @@ $db_param{dbuser} = "FakeUser";
 $result = HealthCheck::Diagnostic::DBHCheck->new(
         dbh => \&db_connect
     )->check;
+note explain $result;
 
 is( $result->{label},  "dbh_check", "Correct label" );
 is( $result->{status}, "OK",        "Expected status" );
