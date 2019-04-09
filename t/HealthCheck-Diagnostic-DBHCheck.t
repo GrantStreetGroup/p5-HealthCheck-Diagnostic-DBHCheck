@@ -170,8 +170,9 @@ like(
 $result = HealthCheck::Diagnostic::DBHCheck->check(
     dbh => sub { $db_param{dbh}->disconnect; return $db_param{dbh}; }
 );
+note explain $result;
 
-is( $result->{status}, "CRITICAL", "Exptected status for disconnected handle" );
+is( $result->{status}, "CRITICAL", "Expected status for disconnected handle" );
 like(
     $result->{info},
     qr/Unsuccessful (.+) read write check of (.+) as (.+)/,
