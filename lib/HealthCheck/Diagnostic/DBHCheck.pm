@@ -82,7 +82,7 @@ sub _read_write_temp_table {
     my $qtable   = $dbh->quote_identifier($table);
 
     # Drop it like its hot
-    $dbh->do("DROP TABLE IF EXISTS $qtable");
+    $dbh->do("DROP TEMPORARY TABLE IF EXISTS $qtable");
 
     $dbh->do(
         join(
@@ -108,7 +108,7 @@ sub _read_write_temp_table {
 
     $status = "OK" if ($row[0] && ($row[0] eq "Hello world"));
 
-    $dbh->do("DROP TABLE $qtable");
+    $dbh->do("DROP TEMPORARY TABLE $qtable");
 
     return $status;
 }
