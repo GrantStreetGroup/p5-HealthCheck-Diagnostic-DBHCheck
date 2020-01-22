@@ -48,6 +48,9 @@ sub db_connect
 my $bad_dbh          = qr/Valid 'dbh' is required at \S+ line \d+/;
 my $expected_coderef = qr/The 'dbh' parameter should be a coderef/;
 my $bad_dbh_params   = qr/Could not connect to the DB or params are invalid/;
+my $critical_status  = qr/CRITICAL/;
+my $unknown_status   = qr/UNKNOWN/;
+my $r = undef;
 
 eval { HealthCheck::Diagnostic::DBHCheck->check };
 like $@, $bad_dbh, "Expected error with no DBH (as class)";
@@ -61,36 +64,63 @@ like $@, $expected_coderef, "Expected error with DBH as empty hashref";
 eval { HealthCheck::Diagnostic::DBHCheck->check( dbh => bless {} ) };
 like $@, $expected_coderef, "Expected error with DBH as empty blessed hashref";
 
-eval { HealthCheck::Diagnostic::DBHCheck->check( dbh => sub {} ) };
+eval { $r = HealthCheck::Diagnostic::DBHCheck->check( dbh => sub {} ) };
 like(
-    $@,
+    $r->{info},
     qr/The 'dbh' coderef should return an object/,
     "Expected error with DBH empty sub"
 );
-
-eval { HealthCheck::Diagnostic::DBHCheck->check(dbh => sub { die "params no good"; }) };
-like $@, $bad_dbh_params, "Expected error with bad DBH params";
+like (
+    $r->{status},
+    $unknown_status,
+    "Expected error with DBH empty sub to provide status of UNKNOWN"
+);
 
 eval {
-    HealthCheck::Diagnostic::DBHCheck->check(
+    $r = HealthCheck::Diagnostic::DBHCheck->check(
+        dbh => sub { die "params no good"; }
+    )
+};
+like (
+    $r->{status},
+    $critical_status,
+    "Expected bad DBH params to provide status of CRITICAL"
+);
+like (
+    $r->{info},
+    $bad_dbh_params, "Expected error with bad DBH params"
+);
+
+eval {
+    $r = HealthCheck::Diagnostic::DBHCheck->check(
         dbh => sub { return "foobar"; }
     )
 };
 like(
-    $@,
+    $r->{info},
     qr/The 'dbh' coderef should return an object/,
     "Expected error with DBH returning a scalar"
 );
+like(
+    $r->{status},
+    $unknown_status,
+    "Expected error with DBH returning a scalar to provide status of UNKNOWN"
+);
 
 eval {
-    HealthCheck::Diagnostic::DBHCheck->check(
+    $r = HealthCheck::Diagnostic::DBHCheck->check(
         dbh => sub { return bless {}, "Foo::Bar"; }
     )
 };
 like(
-    $@,
+    $r->{info},
     qr/The 'dbh' coderef should return a '.*', not a 'Foo::Bar'/,
     "Expected error with DBH returning an unexpected class of object"
+);
+like(
+    $r->{status},
+    $unknown_status,
+    "Expected unknown status with the error for DBH returning unexpected class"
 );
 
 my $result;

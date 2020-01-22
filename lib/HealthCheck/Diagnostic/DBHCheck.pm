@@ -40,13 +40,24 @@ sub check {
     croak("The 'dbh' parameter should be a coderef!")
         unless (ref $dbh eq "CODE");
 
+    my $db_access = $params{db_access}          # Provided call to check()
+        // ((ref $self) && $self->{db_access})  # Value from new()
+        || "rw";                                # default value
+
+    croak("The value '$db_access' is not valid for the 'db_access' parameter")
+        unless ($db_access =~ /^r[ow]$/);
+
     eval{ $dbh = $dbh->(%params); };
 
-    croak("Could not connect to the DB or params are invalid")
-        unless (!$@);
+    if($@) {
+        my $e = "Could not connect to the DB or params are invalid";
+        return { status => 'CRITICAL', info => $e };
+    }
 
-    croak("The 'dbh' coderef should return an object!")
-        unless (blessed $dbh);
+    return {
+        status => 'UNKNOWN',
+        info => "The 'dbh' coderef should return an object!"
+    } unless (blessed $dbh);
 
     my $db_class = $params{db_class}            # Provided in call to check()
         // ((ref $self) && $self->{db_class})   # Value from new
@@ -54,15 +65,10 @@ sub check {
 
     my $isa = ref $dbh;
 
-    croak("The 'dbh' coderef should return a '$db_class', not a '$isa'")
-        unless ($dbh->isa($db_class));
-
-    my $db_access = $params{db_access}          # Provided call to check()
-        // ((ref $self) && $self->{db_access})  # Value from new()
-        || "rw";                                # default value
-
-    croak("The value '$db_access' is not valid for the 'db_access' parameter")
-        unless ($db_access =~ /^r[ow]$/);
+    return {
+        status => 'UNKNOWN',
+        info => "The 'dbh' coderef should return a '$db_class', not a '$isa'"
+    } unless ($dbh->isa($db_class));
 
     my $res = $self->SUPER::check(
         %params,
