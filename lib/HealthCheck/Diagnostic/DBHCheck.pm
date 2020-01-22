@@ -40,7 +40,10 @@ sub check {
     croak("The 'dbh' parameter should be a coderef!")
         unless (ref $dbh eq "CODE");
 
-    $dbh = $dbh->(%params);
+    eval{ $dbh = $dbh->(%params); };
+
+    croak("Could not connect to the DB or params are invalid")
+        unless (!$@);
 
     croak("The 'dbh' coderef should return an object!")
         unless (blessed $dbh);

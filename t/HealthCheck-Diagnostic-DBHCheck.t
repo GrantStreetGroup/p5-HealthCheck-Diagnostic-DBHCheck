@@ -47,6 +47,7 @@ sub db_connect
 #-------------------------------------------------------------------------------
 my $bad_dbh          = qr/Valid 'dbh' is required at \S+ line \d+/;
 my $expected_coderef = qr/The 'dbh' parameter should be a coderef/;
+my $bad_dbh_params   = qr/Could not connect to the DB or params are invalid/;
 
 eval { HealthCheck::Diagnostic::DBHCheck->check };
 like $@, $bad_dbh, "Expected error with no DBH (as class)";
@@ -66,6 +67,9 @@ like(
     qr/The 'dbh' coderef should return an object/,
     "Expected error with DBH empty sub"
 );
+
+eval { HealthCheck::Diagnostic::DBHCheck->check(dbh => sub { die "params no good"; }) };
+like $@, $bad_dbh_params, "Expected error with bad DBH params";
 
 eval {
     HealthCheck::Diagnostic::DBHCheck->check(
