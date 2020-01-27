@@ -47,10 +47,10 @@ sub check {
     croak("The value '$db_access' is not valid for the 'db_access' parameter")
         unless ($db_access =~ /^r[ow]$/);
 
-    eval{ $dbh = $dbh->(%params); };
+    eval{ local $SIG{__DIE__}; $dbh = $dbh->(%params); };
 
     if($@) {
-        my $e = "Could not connect to the DB or params are invalid";
+        my $e = "Could not connect to the DB or params are invalid: $@";
         return { status => 'CRITICAL', info => $e };
     }
 
