@@ -50,8 +50,7 @@ sub check {
     eval{ local $SIG{__DIE__}; $dbh = $dbh->(%params); };
 
     if($@) {
-        my $e = "Could not connect to the DB or params are invalid: $@";
-        return { status => 'CRITICAL', info => $e };
+        return { status => 'CRITICAL', info => $@ };
     }
 
     return {

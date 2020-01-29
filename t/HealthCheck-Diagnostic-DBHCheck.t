@@ -47,7 +47,7 @@ sub db_connect
 #-------------------------------------------------------------------------------
 my $bad_dbh          = qr/Valid 'dbh' is required at \S+ line \d+/;
 my $expected_coderef = qr/The 'dbh' parameter should be a coderef/;
-my $bad_dbh_params   = qr/Could not connect to the DB or params are invalid: params no good/;
+my $bad_dbh_params   = qr/params no good/;
 my $critical_status  = qr/CRITICAL/;
 my $unknown_status   = qr/UNKNOWN/;
 my $r = undef;
