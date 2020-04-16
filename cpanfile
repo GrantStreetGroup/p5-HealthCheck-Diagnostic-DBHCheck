@@ -1,9 +1,19 @@
-use GSG::Gitc::CPANfile $_environment;
+requires 'parent';
+requires 'strict';
+requires 'warnings';
+requires 'Carp';
 
 requires 'HealthCheck::Diagnostic';
 
-test_requires 'Test::Strict';
-test_requires 'DBI';
-test_requires 'DBD::SQLite';
+requires 'Scalar::Util';
 
-1;
+on test => sub {
+    requires 'DBD::SQLite';
+    requires 'DBI';
+    requires 'Test::More';
+    requires 'Test::Strict';
+};
+
+on develop => sub {
+    requires 'Dist::Zilla::PluginBundle::Author::GSG';
+};
