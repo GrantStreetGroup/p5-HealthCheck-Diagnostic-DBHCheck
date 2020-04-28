@@ -47,10 +47,9 @@ sub db_connect
 #-------------------------------------------------------------------------------
 my $bad_dbh          = qr/Valid 'dbh' is required at \S+ line \d+/;
 my $expected_coderef = qr/The 'dbh' parameter should be a coderef/;
-my $bad_dbh_params   = qr/params no good/;
-my $critical_status  = qr/CRITICAL/;
-my $unknown_status   = qr/UNKNOWN/;
 my $r = undef;
+
+# These bad attempts to run "check" should all die:
 
 eval { HealthCheck::Diagnostic::DBHCheck->check };
 like $@, $bad_dbh, "Expected error with no DBH (as class)";
@@ -64,64 +63,49 @@ like $@, $expected_coderef, "Expected error with DBH as empty hashref";
 eval { HealthCheck::Diagnostic::DBHCheck->check( dbh => bless {} ) };
 like $@, $expected_coderef, "Expected error with DBH as empty blessed hashref";
 
-eval { $r = HealthCheck::Diagnostic::DBHCheck->check( dbh => sub {} ) };
-like(
-    $r->{info},
-    qr/The 'dbh' coderef should return an object/,
-    "Expected error with DBH empty sub"
-);
-like (
-    $r->{status},
-    $unknown_status,
-    "Expected error with DBH empty sub to provide status of UNKNOWN"
-);
-
-eval {
-    $r = HealthCheck::Diagnostic::DBHCheck->check(
-        dbh => sub { die "params no good"; }
-    )
-};
-like (
-    $r->{status},
-    $critical_status,
-    "Expected bad DBH params to provide status of CRITICAL"
-);
-like (
-    $r->{info},
-    $bad_dbh_params, "Expected error with bad DBH params"
-);
-
-eval {
-    $r = HealthCheck::Diagnostic::DBHCheck->check(
-        dbh => sub { return "foobar"; }
-    )
-};
-like(
-    $r->{info},
-    qr/The 'dbh' coderef should return an object/,
-    "Expected error with DBH returning a scalar"
-);
-like(
-    $r->{status},
-    $unknown_status,
-    "Expected error with DBH returning a scalar to provide status of UNKNOWN"
-);
-
-eval {
-    $r = HealthCheck::Diagnostic::DBHCheck->check(
-        dbh => sub { return bless {}, "Foo::Bar"; }
-    )
-};
-like(
-    $r->{info},
-    qr/The 'dbh' coderef should return a '.*', not a 'Foo::Bar'/,
-    "Expected error with DBH returning an unexpected class of object"
-);
-like(
-    $r->{status},
-    $unknown_status,
-    "Expected unknown status with the error for DBH returning unexpected class"
-);
+# These bad attempts to run "check" should all live
+# and return a response hash:
+#
+foreach my $t (
+    [
+        'DBH empty sub',
+        'UNKNOWN',
+        qr/The 'dbh' coderef should return an object/,
+        ( dbh => sub {} ),
+    ],
+    [
+        'DBH dies with bad params',
+        'CRITICAL',
+        qr/params no good/,
+        ( dbh => sub { die "params no good" } ),
+    ],
+    [
+        'DBH dies with an exception object',
+        'CRITICAL',
+        qr/My::Exception/,
+        ( dbh => sub { die bless {}, "My::Exception" } ),
+    ],
+    [
+        'DBH returns scalar',
+        'UNKNOWN',
+        qr/The 'dbh' coderef should return an object/,
+        ( dbh => sub { return "foobar" } ),
+    ],
+    [
+        'DBH returns unexpected class of object',
+        'UNKNOWN',
+        qr/The 'dbh' coderef should return a '.*', not a 'Foo::Bar'/,
+        ( dbh => sub { return bless {}, "Foo::Bar" } ),
+    ],
+) {
+    my ($label, $status, $info_re, @args) = @$t;
+    local $@ = undef;
+    eval { $r = HealthCheck::Diagnostic::DBHCheck->check( @args ) };
+    is   !!$@,            '',       "$label does not die";
+    is   $r->{status},    $status,  "$label has expected $status status";
+    is   ref($r->{info}), '',       "$label info is not a reference";
+    like $r->{info},      $info_re, "$label has expected info";
+}
 
 my $result;
 
@@ -218,3 +202,4 @@ like(
 );
 
 done_testing;
+
