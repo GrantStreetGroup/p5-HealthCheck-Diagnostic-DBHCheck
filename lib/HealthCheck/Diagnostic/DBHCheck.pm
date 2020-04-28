@@ -22,7 +22,8 @@ sub new {
       if ($params{dbh} && (ref $params{dbh} ne "CODE"));
 
     return $class->SUPER::new(
-        label => 'dbh_check',
+        tags  => [ 'dbh_check' ],
+        label =>   'dbh_check',
         %params
     );
 }
@@ -47,10 +48,12 @@ sub check {
     croak("The value '$db_access' is not valid for the 'db_access' parameter")
         unless ($db_access =~ /^r[ow]$/);
 
-    eval{ local $SIG{__DIE__}; $dbh = $dbh->(%params); };
-
-    if($@) {
-        return { status => 'CRITICAL', info => $@ };
+    {
+        local $@;
+        eval { local $SIG{__DIE__}; $dbh = $dbh->(%params); };
+        if ($@) {
+            return { status => 'CRITICAL', info => "$@" }; # stringify exception
+        }
     }
 
     return {
@@ -89,7 +92,7 @@ sub _read_write_temp_table {
 
     my $qtable   = $dbh->quote_identifier($table);
 
-    # Drop it like its hot
+    # Drop it like it's hot
     $dbh->do("DROP TEMPORARY TABLE IF EXISTS $qtable");
 
     $dbh->do(
@@ -130,19 +133,23 @@ sub run {
 
     my $status = "OK";
 
-    # See if we can ping the DB connection
-    if ($dbh->can("ping")) {
-        $status = $dbh->ping ? "OK" : "CRITICAL";
-    }
+    RUN_TESTS: {
 
-    if ($status eq "OK") {
+        # See if we can ping the DB connection
+        if ($dbh->can("ping") && !$dbh->ping) {
+            $status = "CRITICAL";
+            last RUN_TESTS;
+        }
+
         # See if a simple SELECT works
-        my $value  = eval { $dbh->selectrow_array("SELECT 1"); };
-        $status = (defined($value) && ($value == 1)) ? "OK" : "CRITICAL";
-    }
+        my $value = eval { $dbh->selectrow_array("SELECT 1"); };
+        unless (defined $value && $value == 1) {
+            $status = "CRITICAL";
+            last RUN_TESTS;
+        }
 
-    $status = _read_write_temp_table(%params)
-        if (($status eq "OK") && $read_write);
+        $status = _read_write_temp_table(%params) if $read_write;
+    }
 
     # Generate the human readable info string
     my $info = sprintf(
@@ -191,10 +198,20 @@ For write access, a temporary table is created, and used for testing.
 
 Those inherited from L<HealthCheck::Diagnostic/ATTRIBUTES> plus:
 
+=head2 label
+
+Inherited from L<HealthCheck::Diagnostic/label|HealthCheck::Diagnostic/label1>,
+defaults to C<dbh_check>.
+
+=head2 tags
+
+Inherited from L<HealthCheck::Diagnostic/tags|HealthCheck::Diagnostic/tags1>,
+defaults to C<[ 'dbh_check' ]>.
+
 =head2 dbh
 
 A coderef that returns a
-L<DBI DATABASE handle object|DBI/DBI-DATABSE-HANDLE-OBJECTS>
+L<DBI DATABASE handle object|DBI/DBI-DATABASE-HANDLE-OBJECTS>
 or optionally the handle itself.
 
 Can be passed either to C<new> or C<check>.
