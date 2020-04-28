@@ -4,7 +4,7 @@ HealthCheck::Diagnostic::DBHCheck - Check a database handle to make sure you hav
 
 # VERSION
 
-version v0.50.1
+version v0.500.1
 
 # SYNOPSIS
 
