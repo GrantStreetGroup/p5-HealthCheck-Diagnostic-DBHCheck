@@ -4,7 +4,7 @@ HealthCheck::Diagnostic::DBHCheck - Check a database handle to make sure you hav
 
 # VERSION
 
-version v0.500.1
+version v0.500.2
 
 # SYNOPSIS
 
@@ -37,10 +37,20 @@ For write access, a temporary table is created, and used for testing.
 
 Those inherited from ["ATTRIBUTES" in HealthCheck::Diagnostic](https://metacpan.org/pod/HealthCheck%3A%3ADiagnostic#ATTRIBUTES) plus:
 
+## label
+
+Inherited from ["label1" in HealthCheck::Diagnostic](https://metacpan.org/pod/HealthCheck%3A%3ADiagnostic#label1),
+defaults to `dbh_check`.
+
+## tags
+
+Inherited from ["tags1" in HealthCheck::Diagnostic](https://metacpan.org/pod/HealthCheck%3A%3ADiagnostic#tags1),
+defaults to `[ 'dbh_check' ]`.
+
 ## dbh
 
 A coderef that returns a
-[DBI DATABASE handle object](https://metacpan.org/pod/DBI#DBI-DATABSE-HANDLE-OBJECTS)
+[DBI DATABASE handle object](https://metacpan.org/pod/DBI#DBI-DATABASE-HANDLE-OBJECTS)
 or optionally the handle itself.
 
 Can be passed either to `new` or `check`.
