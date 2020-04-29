@@ -36,24 +36,22 @@ sub check {
     # 2nd, if invoked with an object (not the class), then get dbh from object
     $dbh ||= $self->{dbh} if ref $self;
 
-    croak("Valid 'dbh' is required") unless $dbh;
+    croak "Valid 'dbh' is required" unless $dbh;
 
-    croak("The 'dbh' parameter should be a coderef!")
-        unless (ref $dbh eq "CODE");
+    croak "The 'dbh' parameter should be a coderef!"
+        unless ref $dbh eq "CODE";
 
     my $db_access = $params{db_access}          # Provided call to check()
         // ((ref $self) && $self->{db_access})  # Value from new()
         || "rw";                                # default value
 
-    croak("The value '$db_access' is not valid for the 'db_access' parameter")
-        unless ($db_access =~ /^r[ow]$/);
+    croak "The value '$db_access' is not valid for the 'db_access' parameter"
+        unless $db_access =~ /^r[ow]$/;
 
     $dbh = $dbh->(%params);
 
-    return {
-        status => 'UNKNOWN',
-        info => "The 'dbh' coderef should return an object!"
-    } unless (blessed $dbh);
+    croak "The 'dbh' coderef should return an object!"
+        unless blessed $dbh;
 
     my $db_class = $params{db_class}            # Provided in call to check()
         // ((ref $self) && $self->{db_class})   # Value from new
@@ -61,10 +59,8 @@ sub check {
 
     my $isa = ref $dbh;
 
-    return {
-        status => 'UNKNOWN',
-        info => "The 'dbh' coderef should return a '$db_class', not a '$isa'"
-    } unless ($dbh->isa($db_class));
+    croak "The 'dbh' coderef should return a '$db_class', not a '$isa'"
+        unless $dbh->isa($db_class);
 
     my $res = $self->SUPER::check(
         %params,

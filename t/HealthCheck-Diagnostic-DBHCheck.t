@@ -47,6 +47,7 @@ sub db_connect
 #-------------------------------------------------------------------------------
 my $bad_dbh          = qr/Valid 'dbh' is required at \S+ line \d+/;
 my $expected_coderef = qr/The 'dbh' parameter should be a coderef/;
+my $expected_object  = qr/The 'dbh' coderef should return an object/;
 my $r = undef;
 
 # These bad attempts to run "check" should all die:
@@ -63,43 +64,20 @@ like $@, $expected_coderef, "Expected error with DBH as empty hashref";
 eval { HealthCheck::Diagnostic::DBHCheck->check( dbh => bless {} ) };
 like $@, $expected_coderef, "Expected error with DBH as empty blessed hashref";
 
+eval { HealthCheck::Diagnostic::DBHCheck->check( dbh => sub {} ) };
+like $@, $expected_object, "Expected error with DBH as empty sub";
+
+eval { HealthCheck::Diagnostic::DBHCheck->check( dbh => sub { "foobar" } ) };
+like $@, $expected_object, "Expected error with DBH as scalar";
+
+eval { HealthCheck::Diagnostic::DBHCheck->check( dbh => sub { return bless {}, "Foo::Bar" } ) };
+like $@, qr/The 'dbh' coderef should return a '.*', not a 'Foo::Bar'/, "Expected error with DBH as unexpected object class";
+
 eval { HealthCheck::Diagnostic::DBHCheck->check( dbh => sub { die "params no good" } ) };
 like $@, qr/params no good/, "Expected error when DBH dies with bad params";
 
 eval { HealthCheck::Diagnostic::DBHCheck->check( dbh => sub { die bless {}, "My::Exception" } ) };
 like $@, qr/My::Exception/, "Expected error when DBH dies with exception object";
-
-# These bad attempts to run "check" should all live
-# and return a response hash:
-#
-foreach my $t (
-    [
-        'DBH empty sub',
-        'UNKNOWN',
-        qr/The 'dbh' coderef should return an object/,
-        ( dbh => sub {} ),
-    ],
-    [
-        'DBH returns scalar',
-        'UNKNOWN',
-        qr/The 'dbh' coderef should return an object/,
-        ( dbh => sub { return "foobar" } ),
-    ],
-    [
-        'DBH returns unexpected class of object',
-        'UNKNOWN',
-        qr/The 'dbh' coderef should return a '.*', not a 'Foo::Bar'/,
-        ( dbh => sub { return bless {}, "Foo::Bar" } ),
-    ],
-) {
-    my ($label, $status, $info_re, @args) = @$t;
-    local $@ = undef;
-    eval { $r = HealthCheck::Diagnostic::DBHCheck->check( @args ) };
-    is   !!$@,            '',       "$label does not die";
-    is   $r->{status},    $status,  "$label has expected $status status";
-    is   ref($r->{info}), '',       "$label info is not a reference";
-    like $r->{info},      $info_re, "$label has expected info";
-}
 
 my $result;
 
