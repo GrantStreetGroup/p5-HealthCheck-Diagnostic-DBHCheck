@@ -48,13 +48,7 @@ sub check {
     croak("The value '$db_access' is not valid for the 'db_access' parameter")
         unless ($db_access =~ /^r[ow]$/);
 
-    {
-        local $@;
-        eval { local $SIG{__DIE__}; $dbh = $dbh->(%params); };
-        if ($@) {
-            return { status => 'CRITICAL', info => "$@" }; # stringify exception
-        }
-    }
+    $dbh = $dbh->(%params);
 
     return {
         status => 'UNKNOWN',

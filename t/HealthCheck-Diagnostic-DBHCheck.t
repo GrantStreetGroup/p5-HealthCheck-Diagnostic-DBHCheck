@@ -63,6 +63,12 @@ like $@, $expected_coderef, "Expected error with DBH as empty hashref";
 eval { HealthCheck::Diagnostic::DBHCheck->check( dbh => bless {} ) };
 like $@, $expected_coderef, "Expected error with DBH as empty blessed hashref";
 
+eval { HealthCheck::Diagnostic::DBHCheck->check( dbh => sub { die "params no good" } ) };
+like $@, qr/params no good/, "Expected error when DBH dies with bad params";
+
+eval { HealthCheck::Diagnostic::DBHCheck->check( dbh => sub { die bless {}, "My::Exception" } ) };
+like $@, qr/My::Exception/, "Expected error when DBH dies with exception object";
+
 # These bad attempts to run "check" should all live
 # and return a response hash:
 #
@@ -72,18 +78,6 @@ foreach my $t (
         'UNKNOWN',
         qr/The 'dbh' coderef should return an object/,
         ( dbh => sub {} ),
-    ],
-    [
-        'DBH dies with bad params',
-        'CRITICAL',
-        qr/params no good/,
-        ( dbh => sub { die "params no good" } ),
-    ],
-    [
-        'DBH dies with an exception object',
-        'CRITICAL',
-        qr/My::Exception/,
-        ( dbh => sub { die bless {}, "My::Exception" } ),
     ],
     [
         'DBH returns scalar',
