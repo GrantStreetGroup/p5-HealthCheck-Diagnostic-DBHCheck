@@ -48,7 +48,30 @@ sub check {
     croak "The value '$db_access' is not valid for the 'db_access' parameter"
         unless $db_access =~ /^r[ow]$/;
 
-    $dbh = $dbh->(%params);
+    my $timeout =
+        defined $params{timeout}                  ? $params{timeout} :
+        (ref $self) && (defined $self->{timeout}) ? $self->{timeout} :
+                                                    10;
+
+    local $@;
+    eval {
+        local $SIG{__DIE__};
+        local $SIG{ALRM} = sub { die "timeout after $timeout seconds.\n" };
+        alarm $timeout;
+        $dbh = $dbh->(%params);
+    };
+    alarm 0;
+
+    if ( $@ =~ /^timeout/ ) {
+        chomp $@;
+        return {
+            status => 'CRITICAL',
+            info   => "Database connection $@",
+        };
+    }
+
+    # re-throw any other exceptions
+    die $@ if $@;
 
     croak "The 'dbh' coderef should return an object!"
         unless blessed $dbh;
@@ -164,6 +187,7 @@ __END__
             dbh       => \&connect_to_read_write_db,
             db_access => "rw",
             tags      => [qw< dbh_check_rw >]
+            timeout   => 10, # default
         ),
         HealthCheck::Diagnostic::DBHCheck->new(
             dbh       => \&connect_to_read_only_db,
@@ -222,6 +246,13 @@ The expected class for the database handle returned by the C<dbh> coderef.
 
 Defaults to C<DBI::db>.
 
+=head2 timeout
+
+Sets up an C<ALRM> signal handler used to timeout the initial connection
+attempt after the number of seconds provided.
+
+Defaults to 10.
+
 =head1 DEPENDENCIES
 
 L<HealthCheck::Diagnostic>
@@ -231,4 +262,3 @@ L<HealthCheck::Diagnostic>
 None
 
 =cut
-
