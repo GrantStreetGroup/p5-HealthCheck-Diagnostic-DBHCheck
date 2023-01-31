@@ -214,12 +214,12 @@ Those inherited from L<HealthCheck::Diagnostic/ATTRIBUTES> plus:
 
 =head2 label
 
-Inherited from L<HealthCheck::Diagnostic/label|HealthCheck::Diagnostic/label1>,
+Inherited from L<"label" in HealthCheck::Diagnostic|HealthCheck::Diagnostic/label1>,
 defaults to C<dbh_check>.
 
 =head2 tags
 
-Inherited from L<HealthCheck::Diagnostic/tags|HealthCheck::Diagnostic/tags1>,
+Inherited from L<"tags" in HealthCheck::Diagnostic|HealthCheck::Diagnostic/tags1>,
 defaults to C<[ 'dbh_check' ]>.
 
 =head2 dbh
