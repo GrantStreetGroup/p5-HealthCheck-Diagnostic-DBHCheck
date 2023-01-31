@@ -4,7 +4,7 @@ HealthCheck::Diagnostic::DBHCheck - Check a database handle to make sure you hav
 
 # VERSION
 
-version v0.500.1
+version v1.0.0
 
 # SYNOPSIS
 
@@ -13,6 +13,7 @@ version v0.500.1
             dbh       => \&connect_to_read_write_db,
             db_access => "rw",
             tags      => [qw< dbh_check_rw >]
+            timeout   => 10, # default
         ),
         HealthCheck::Diagnostic::DBHCheck->new(
             dbh       => \&connect_to_read_only_db,
@@ -37,10 +38,20 @@ For write access, a temporary table is created, and used for testing.
 
 Those inherited from ["ATTRIBUTES" in HealthCheck::Diagnostic](https://metacpan.org/pod/HealthCheck%3A%3ADiagnostic#ATTRIBUTES) plus:
 
+## label
+
+Inherited from ["label" in HealthCheck::Diagnostic](https://metacpan.org/pod/HealthCheck%3A%3ADiagnostic#label1),
+defaults to `dbh_check`.
+
+## tags
+
+Inherited from ["tags" in HealthCheck::Diagnostic](https://metacpan.org/pod/HealthCheck%3A%3ADiagnostic#tags1),
+defaults to `[ 'dbh_check' ]`.
+
 ## dbh
 
 A coderef that returns a
-[DBI DATABASE handle object](https://metacpan.org/pod/DBI#DBI-DATABSE-HANDLE-OBJECTS)
+[DBI DATABASE handle object](https://metacpan.org/pod/DBI#DBI-DATABASE-HANDLE-OBJECTS)
 or optionally the handle itself.
 
 Can be passed either to `new` or `check`.
@@ -61,6 +72,13 @@ The expected class for the database handle returned by the `dbh` coderef.
 
 Defaults to `DBI::db`.
 
+## timeout
+
+Sets up an `ALRM` signal handler used to timeout the initial connection
+attempt after the number of seconds provided.
+
+Defaults to 10.
+
 # DEPENDENCIES
 
 [HealthCheck::Diagnostic](https://metacpan.org/pod/HealthCheck%3A%3ADiagnostic)
@@ -75,7 +93,7 @@ Grant Street Group <developers@grantstreet.com>
 
 # COPYRIGHT AND LICENSE
 
-This software is Copyright (c) 2019 - 2020 by Grant Street Group.
+This software is Copyright (c) 2019 - 2023 by Grant Street Group.
 
 This is free software, licensed under:
 
